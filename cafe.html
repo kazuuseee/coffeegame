@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Кав'ярня</title>
+    <style>
+        :root {
+            --bg-color: #f4e7d3;
+            --primary: #6f4e37;
+            --secondary: #a67c52;
+            --accent: #d2a679;
+            --text-light: #fff;
+            --text-dark: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 900px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* Header (Stats) */
+        header {
+            background-color: var(--primary);
+            color: var(--text-light);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        /* Main Layout */
+        main {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .column {
+            flex: 1;
+            background: var(--bg-color);
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid var(--accent);
+        }
+
+        h2, h3 { margin-top: 0; color: var(--primary); }
+
+        /* Customer Area */
+        #customer-area { text-align: center; }
+        .emoji-avatar { font-size: 80px; margin: 10px 0; }
+        .speech-bubble {
+            background: #fff;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            padding: 10px;
+            position: relative;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        progress { width: 100%; height: 20px; }
+
+        /* Kitchen Area */
+        .ingredient-btn, .action-btn, .upgrade-btn {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: 0.2s;
+        }
+        .ingredient-btn:hover, .action-btn:hover, .upgrade-btn:hover { background-color: var(--primary); }
+        .action-btn { background-color: #2e8b57; font-weight: bold; width: 45%; }
+        .action-btn.trash { background-color: #b22222; }
+        
+        #current-cup {
+            min-height: 40px;
+            background: #fff;
+            border: 2px dashed var(--primary);
+            padding: 10px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+
+        /* Upgrades & Quests */
+        .upgrade-btn { display: block; width: 100%; margin-bottom: 10px; }
+        #quest-box {
+            background: #fff;
+            border-left: 5px solid gold;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        /* Custom Recipe Modal */
+        #custom-recipe-form {
+            background: #fff;
+            padding: 10px;
+            border: 2px solid var(--secondary);
+            margin-top: 15px;
+            display: none;
+        }
+        input[type="text"] { padding: 5px; width: 90%; margin-bottom: 10px; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <div>💰 Гроші: $<span id="money">0</span></div>
+        <div>⭐ Рейтинг: <span id="rating">5.0</span> (Рівень <span id="level">1</span>)</div>
+    </header>
+
+    <main>
+        <!-- Клієнт -->
+        <div class="column" id="customer-area">
+            <h2>Клієнт</h2>
+            <div id="customer-display">
+                <div class="speech-bubble">Я хочу: <span id="order-name">...</span></div>
+                <div class="emoji-avatar" id="customer-emoji">👤</div>
+                <progress id="order-timer" value="100" max="100"></progress>
+                <div id="timer-text">Чекає...</div>
+            </div>
+        </div>
+
+        <!-- Кухня -->
+        <div class="column" id="kitchen-area">
+            <h2>Кухня</h2>
+            <div id="current-cup">Порожня чашка</div>
+            <div>
+                <button class="ingredient-btn" onclick="addIngredient('Кава')">☕ Кава</button>
+                <button class="ingredient-btn" onclick="addIngredient('Вода')">💧 Вода</button>
+                <button class="ingredient-btn" onclick="addIngredient('Молоко')">🥛 Молоко</button>
+                <button class="ingredient-btn" onclick="addIngredient('Сироп')">🍯 Сироп</button>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="action-btn" onclick="serveOrder()">☕ Видати</button>
+                <button class="action-btn trash" onclick="clearCup()">🗑 Викинути</button>
+            </div>
+            
+            <button class="action-btn" style="width:100%; margin-top:15px; background-color: #8b4513;" onclick="toggleRecipeBook()">📖 Довідник рецептів</button>
+            <div id="recipe-book" style="display:none; background:#fff; border:2px solid var(--secondary); padding:10px; margin-top:10px; text-align:left; border-radius:5px; max-height:200px; overflow-y:auto; font-size:0.9em;">
+                <ul id="recipe-list" style="padding-left:0; list-style:none; margin:0;"></ul>
+            </div>
+        </div>
+
+        <!-- Магазин та Квести -->
+        <div class="column" id="shop-area">
+            <h3>Управління</h3>
+            <div id="quest-box">
+                <b>Щоденне завдання:</b><br>
+                <span id="quest-text">Приготувати 3 Еспресо (0/3)</span><br>
+                <button class="action-btn" id="claim-quest-btn" onclick="claimQuest()" style="display:none; width:100%; margin-top:5px;">Забрати бонус $50</button>
+            </div>
+
+            <h3>Покращення</h3>
+            <button class="upgrade-btn" onclick="buyUpgrade('machine')">Кавомашина ($100) <br><small>+Час очікування</small></button>
+            <button class="upgrade-btn" onclick="buyUpgrade('decor')">Декор ($50) <br><small>+Чайові</small></button>
+
+            <h3>Новий рецепт</h3>
+            <button class="action-btn" style="width:100%" onclick="toggleRecipeForm()">+ Створити свій</button>
+            <div id="custom-recipe-form">
+                <input type="text" id="custom-name" placeholder="Назва напою...">
+                <div id="custom-preview" style="font-family: monospace; margin-bottom:10px;">Склад: </div>
+                <button class="ingredient-btn" onclick="addCustomIngredient('Кава')">☕</button>
+                <button class="ingredient-btn" onclick="addCustomIngredient('Вода')">💧</button>
+                <button class="ingredient-btn" onclick="addCustomIngredient('Молоко')">🥛</button>
+                <button class="ingredient-btn" onclick="addCustomIngredient('Сироп')">🍯</button>
+                <button class="action-btn" style="width:100%; margin-top:10px;" onclick="saveCustomRecipe()">Зберегти ($20)</button>
+            </div>
+            
+            <button class="action-btn trash" style="width:100%; margin-top:20px;" onclick="resetGame()">Скинути прогрес</button>
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Початкові дані та Стан гри ---
+   const defaultRecipes = {
+        // Базові
+        "Еспресо": ["Кава", "Вода"],
+        "Американо": ["Кава", "Вода", "Вода"],
+        "Капучино": ["Кава", "Молоко", "Молоко"],
+        "Лате": ["Кава", "Вода", "Молоко"],
+        
+        // Нові класичні
+        "Подвійний еспресо": ["Кава", "Кава", "Вода"],
+        "Макіато": ["Кава", "Молоко"],
+        "Флет Вайт": ["Кава", "Кава", "Молоко"],
+        
+        // Напої з сиропом
+        "Карамельний лате": ["Кава", "Вода", "Молоко", "Сироп"],
+        "Солодкий капучино": ["Кава", "Молоко", "Молоко", "Сироп"],
+        "Кавовий десерт": ["Кава", "Молоко", "Сироп", "Сироп"]
+    };
+
+    let state = {
+        money: 0,
+        rating: 5.0,
+        level: 1,
+        upgrades: { machine: 0, decor: 0 },
+        customRecipes: {},
+        quest: { target: "Еспресо", required: 3, current: 0, claimed: false }
+    };
+
+    let currentCup = [];
+    let currentOrder = "";
+    let customerTimer;
+    let timeLeft = 100;
+    let maxTime = 100;
+    
+    let tempCustomRecipe = []; // Для створення власного рецепту
+
+    // --- Локальне сховище (localStorage) ---
+  function saveGame() {
+        try {
+            localStorage.setItem('cafeGameState', JSON.stringify(state));
+        } catch (e) {
+            console.warn("Збереження недоступне у цьому середовищі.");
+        }
+        updateUI();
+    }
+
+    function loadGame() {
+        try {
+            const saved = localStorage.getItem('cafeGameState');
+            if (saved) state = JSON.parse(saved);
+        } catch (e) {
+            console.warn("Завантаження збереження недоступне.");
+        }
+        updateUI();
+        spawnCustomer(); // Ця функція тепер точно викличеться і створить клієнта
+    }
+
+    function resetGame() {
+        if(confirm("Дійсно видалити весь прогрес?")) {
+            localStorage.removeItem('cafeGameState');
+            location.reload();
+        }
+    }
+
+    // --- Логіка Кухні ---
+    function addIngredient(ing) {
+        if (currentCup.length < 5) { // Максимум 5 інгредієнтів
+            currentCup.push(ing);
+            renderCup();
+        }
+    }
+
+    function clearCup() {
+        currentCup = [];
+        renderCup();
+    }
+
+   function renderCup() {
+        // Змінено 'cup-contents' на 'current-cup'
+        const display = document.getElementById('current-cup');
+        display.innerText = currentCup.length > 0 ? currentCup.join(" ➔ ") : "Порожня чашка";
+    }
+
+    // --- Логіка Клієнтів та Замовлень ---
+    function getAllRecipes() {
+        return { ...defaultRecipes, ...state.customRecipes };
+    }
+
+    function spawnCustomer() {
+        clearInterval(customerTimer);
+        clearCup();
+        
+        const recipes = getAllRecipes();
+        const recipeNames = Object.keys(recipes);
+        currentOrder = recipeNames[Math.floor(Math.random() * recipeNames.length)];
+        
+        // Розрахунок часу: база 15 сек + 3 сек за кожен апгрейд машини
+        const timeSeconds = 15 + (state.upgrades.machine * 3); 
+        maxTime = timeSeconds * 10; // множимо на 10 для плавності progress bar (100мс інтервал)
+        timeLeft = maxTime;
+
+        document.getElementById('order-name').innerText = currentOrder;
+        
+        const emojis = ["👱‍♂️", "👩‍🦰", "👴", "👧", "🧔"];
+        document.getElementById('customer-emoji').innerText = emojis[Math.floor(Math.random() * emojis.length)];
+
+        customerTimer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('order-timer').value = (timeLeft / maxTime) * 100;
+            
+            if (timeLeft <= 0) {
+                failOrder("Клієнт не дочекався і пішов!");
+            }
+        }, 100);
+    }
+
+    function serveOrder() {
+        if (currentCup.length === 0) return;
+
+        const recipes = getAllRecipes();
+        const correctRecipe = recipes[currentOrder];
+
+        // Перевірка: чи збігаються масиви (послідовність важлива)
+        if (JSON.stringify(currentCup) === JSON.stringify(correctRecipe)) {
+            successOrder();
+        } else {
+            failOrder("Неправильний рецепт або послідовність!");
+        }
+    }
+
+    function successOrder() {
+        clearInterval(customerTimer);
+        
+        // Розрахунок заробітку: База + бонус за швидкість + бонус від декору
+        const basePrice = 10;
+        const speedBonus = Math.floor((timeLeft / maxTime) * 10);
+        const decorBonus = state.upgrades.decor * 5;
+        const earned = basePrice + speedBonus + decorBonus;
+
+        state.money += earned;
+        state.rating = Math.min(5.0, state.rating + 0.1);
+        
+        // Перевірка квесту
+        if (!state.quest.claimed && currentOrder === state.quest.target) {
+            state.quest.current++;
+        }
+
+        // Рівень (кожні $200)
+        state.level = Math.floor(state.money / 200) + 1;
+
+        saveGame();
+        
+        // Анімація успіху
+        document.getElementById('customer-emoji').innerText = "😍";
+        setTimeout(spawnCustomer, 1000);
+    }
+
+    function failOrder(reason) {
+        clearInterval(customerTimer);
+        state.rating = Math.max(1.0, state.rating - 0.5);
+        
+        document.getElementById('customer-emoji').innerText = "😠";
+        document.getElementById('order-name').innerText = reason;
+        
+        saveGame();
+        setTimeout(spawnCustomer, 2000);
+    }
+
+    // --- Магазин та Апгрейди ---
+    function buyUpgrade(type) {
+        const prices = { machine: 100, decor: 50 };
+        if (state.money >= prices[type]) {
+            state.money -= prices[type];
+            state.upgrades[type]++;
+            saveGame();
+        } else {
+            alert("Недостатньо грошей!");
+        }
+    }
+
+    // --- Квести ---
+    function claimQuest() {
+        if (state.quest.current >= state.quest.required && !state.quest.claimed) {
+            state.money += 50;
+            state.quest.claimed = true;
+            saveGame();
+        }
+    }
+
+    function checkQuestNewDay() {
+        // У простій версії квест оновлюється, якщо він виконаний і забраний
+        if (state.quest.claimed) {
+            const recipes = Object.keys(getAllRecipes());
+            state.quest = {
+                target: recipes[Math.floor(Math.random() * recipes.length)],
+                required: Math.floor(Math.random() * 3) + 2,
+                current: 0,
+                claimed: false
+            };
+            saveGame();
+        }
+    }
+
+    // --- Власні рецепти ---
+    function toggleRecipeForm() {
+        const form = document.getElementById('custom-recipe-form');
+        form.style.display = form.style.display === 'block' ? 'none' : 'block';
+        tempCustomRecipe = [];
+        updateCustomPreview();
+    }
+
+    function addCustomIngredient(ing) {
+        if(tempCustomRecipe.length < 5) {
+            tempCustomRecipe.push(ing);
+            updateCustomPreview();
+        }
+    }
+
+    function updateCustomPreview() {
+        document.getElementById('custom-preview').innerText = "Склад: " + tempCustomRecipe.join(" + ");
+    }
+
+    function saveCustomRecipe() {
+        const name = document.getElementById('custom-name').value.trim();
+        if (name === "" || tempCustomRecipe.length === 0) {
+            alert("Введіть назву та додайте хоча б 1 інгредієнт.");
+            return;
+        }
+        if (state.money < 20) {
+            alert("Створення рецепту коштує $20!");
+            return;
+        }
+
+        state.money -= 20;
+        state.customRecipes[name] = tempCustomRecipe;
+        saveGame();
+        
+        document.getElementById('custom-name').value = "";
+        toggleRecipeForm();
+        alert(`Рецепт "${name}" успішно додано до меню!`);
+    }
+
+    // --- Оновлення інтерфейсу ---
+    function updateUI() {
+        document.getElementById('money').innerText = state.money;
+        document.getElementById('rating').innerText = state.rating.toFixed(1);
+        document.getElementById('level').innerText = state.level;
+
+        // Квест UI
+        const qBox = document.getElementById('quest-text');
+        const qBtn = document.getElementById('claim-quest-btn');
+        if (state.quest.claimed) {
+            qBox.innerText = "Завдання виконано! Чекайте на нове.";
+            qBtn.style.display = "none";
+            checkQuestNewDay(); // Генеруємо нове одразу для динаміки міні-гри
+        } else {
+            qBox.innerText = `Приготувати ${state.quest.required} ${state.quest.target} (${state.quest.current}/${state.quest.required})`;
+            if (state.quest.current >= state.quest.required) {
+                qBtn.style.display = "block";
+            } else {
+                qBtn.style.display = "none";
+            }
+        }
+    }
+
+    function toggleRecipeBook() {
+        const book = document.getElementById('recipe-book');
+        const list = document.getElementById('recipe-list');
+        
+        if (book.style.display === 'none' || book.style.display === '') {
+            book.style.display = 'block';
+            list.innerHTML = ''; // Очищаємо список перед оновленням
+            
+            const recipes = getAllRecipes(); // Беремо всі рецепти, включно з кастомними
+            for (let name in recipes) {
+                list.innerHTML += `
+                <li style="margin-bottom: 8px; border-bottom: 1px dashed #ddd; padding-bottom: 4px;">
+                    <strong>${name}</strong><br>
+                    <span style="color: #555;">${recipes[name].join(' ➔ ')}</span>
+                </li>`;
+            }
+        } else {
+            book.style.display = 'none'; // Ховаємо, якщо вже відкрито
+        }
+    }
+
+    // Запуск гри
+    window.onload = loadGame;
+
+</script>
+</body>
+</html>
